@@ -1,0 +1,59 @@
+version: '3.8'
+services:
+    prometheus:
+        image: prom/prometheus:v2.19.2
+        volumes:
+            - ./prometheus/:/etc/prometheus/
+        command:
+            - --config.file=/etc/prometheus/prometheus.yml
+        ports:
+            - 9090:9090
+    pushgateway:
+        image: prom/pushgateway:v1.2.0
+        depends_on:
+            - prometheus
+        ports:
+            - 9091:9091
+    alertmanager:
+        image: prom/alertmanager:v0.21.0
+        volumes:
+            - ./alertmanager/:/etc/alertmanager/
+        command:
+            - --config.file=/etc/alertmanager/config.yml
+            - --storage.path=/alertmanager
+        depends_on:
+            - prometheus
+        ports:
+            - 9093:9093
+    grafana:
+        image: grafana/grafana:7.0.6
+        volumes:
+            - ./grafana/provisioning/:/etc/grafana/provisioning/
+        env_file:
+            - ./grafana/config.monitoring
+        depends_on:
+            - prometheus
+        ports:
+            - 3000:3000
+    node_exporter:
+        image: prom/node-exporter:v1.0.1
+        depends_on:
+            - prometheus
+        ports:
+            - 9100:9100
+    dummy_puller:
+        container_name: dummy_puller_service
+        build: ./dummy_puller
+        restart: always
+        depends_on:
+            - prometheus
+        ports:
+            - 8080:8080
+    dummy_pusher:
+        container_name: dummy_pusher_service
+        build: ./dummy_pusher
+        restart: always
+        environment:
+            - PUSHGATEWAY_URL=http://pushgateway:9091
+        depends_on:
+            - pushgateway
